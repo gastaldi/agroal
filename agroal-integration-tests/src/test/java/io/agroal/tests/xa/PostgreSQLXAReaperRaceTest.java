@@ -17,7 +17,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class PostgreSQLXAReaperRaceTest extends XAReaperRaceTestBase {
 
     @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer( "postgres:17-alpine" );
+    static PostgreSQLContainer postgres = new PostgreSQLContainer( System.getProperty( "postgres.testcontainer.image", "postgres:17-alpine" ) );
 
     @Override
     String xaDataSourceClassName() {

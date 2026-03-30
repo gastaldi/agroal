@@ -17,7 +17,7 @@ import org.testcontainers.mysql.MySQLContainer;
 class MySQLXAReaperRaceTest extends XAReaperRaceTestBase {
 
     @Container
-    static MySQLContainer mysql = new MySQLContainer( "mysql:8.0" );
+    static MySQLContainer mysql = new MySQLContainer( System.getProperty( "mysql.testcontainer.image", "mysql:8.0" ) );
 
     @Override
     String xaDataSourceClassName() {

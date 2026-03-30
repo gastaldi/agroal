@@ -14,6 +14,13 @@
     <testcontainers.version>2.0.3</testcontainers.version>
     <assertj.version>3.27.7</assertj.version>
     <byteman.version>4.0.26</byteman.version>
+
+    <!-- Testcontainer Docker images -->
+    <postgres.testcontainer.image>postgres:17-alpine</postgres.testcontainer.image>
+    <mysql.testcontainer.image>mysql:8.0</mysql.testcontainer.image>
+    <mariadb.testcontainer.image>mariadb:11</mariadb.testcontainer.image>
+    <mssql.testcontainer.image>mcr.microsoft.com/mssql/server:2022-CU23-ubuntu-22.04</mssql.testcontainer.image>
+    <oracle.testcontainer.image>gvenzl/oracle-free:slim-faststart</oracle.testcontainer.image>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -165,6 +172,13 @@
         <configuration>
           <excludedGroups>testcontainers</excludedGroups>
           <argLine>-Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</argLine>
+          <systemPropertyVariables>
+            <postgres.testcontainer.image>${postgres.testcontainer.image}</postgres.testcontainer.image>
+            <mysql.testcontainer.image>${mysql.testcontainer.image}</mysql.testcontainer.image>
+            <mariadb.testcontainer.image>${mariadb.testcontainer.image}</mariadb.testcontainer.image>
+            <mssql.testcontainer.image>${mssql.testcontainer.image}</mssql.testcontainer.image>
+            <oracle.testcontainer.image>${oracle.testcontainer.image}</oracle.testcontainer.image>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
     </plugins>
@@ -181,6 +195,13 @@
               <excludedGroups>none</excludedGroups>
               <reuseForks>false</reuseForks>
               <argLine>-Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</argLine>
+              <systemPropertyVariables>
+                <postgres.testcontainer.image>${postgres.testcontainer.image}</postgres.testcontainer.image>
+                <mysql.testcontainer.image>${mysql.testcontainer.image}</mysql.testcontainer.image>
+                <mariadb.testcontainer.image>${mariadb.testcontainer.image}</mariadb.testcontainer.image>
+                <mssql.testcontainer.image>${mssql.testcontainer.image}</mssql.testcontainer.image>
+                <oracle.testcontainer.image>${oracle.testcontainer.image}</oracle.testcontainer.image>
+              </systemPropertyVariables>
             </configuration>
           </plugin>
         </plugins>

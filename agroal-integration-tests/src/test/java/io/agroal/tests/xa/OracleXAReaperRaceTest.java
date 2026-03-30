@@ -27,7 +27,7 @@ import org.testcontainers.utility.MountableFile;
 class OracleXAReaperRaceTest extends XAReaperRaceTestBase {
 
     @Container
-    static OracleContainer oracle = new OracleContainer( "gvenzl/oracle-free:slim-faststart" )
+    static OracleContainer oracle = new OracleContainer( System.getProperty( "oracle.testcontainer.image", "gvenzl/oracle-free:slim-faststart" ) )
             .withUsername( "test" )
             .withPassword( "test" )
             .withCopyToContainer(

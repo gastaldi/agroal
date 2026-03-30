@@ -24,7 +24,7 @@ class MSSQLXAReaperRaceTest extends XAReaperRaceTestBase {
     private static final Logger logger = Logger.getLogger( MSSQLXAReaperRaceTest.class.getName() );
 
     @Container
-    static MSSQLServerContainer mssql = new MSSQLServerContainer( "mcr.microsoft.com/mssql/server:2022-latest" )
+    static MSSQLServerContainer mssql = new MSSQLServerContainer( System.getProperty( "mssql.testcontainer.image", "mcr.microsoft.com/mssql/server:2022-CU23-ubuntu-22.04" ) )
             .acceptLicense()
             .withInitScript( "mssql-xa-init.sql" );
 

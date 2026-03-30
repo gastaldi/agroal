@@ -17,7 +17,7 @@ import org.testcontainers.mariadb.MariaDBContainer;
 class MariaDBXAReaperRaceTest extends XAReaperRaceTestBase {
 
     @Container
-    static MariaDBContainer mariadb = new MariaDBContainer( "mariadb:11" );
+    static MariaDBContainer mariadb = new MariaDBContainer( System.getProperty( "mariadb.testcontainer.image", "mariadb:11" ) );
 
     @Override
     String xaDataSourceClassName() {
