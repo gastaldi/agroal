@@ -18,7 +18,7 @@
     <!-- Testcontainer Docker images -->
     <postgres.testcontainer.image>postgres:17-alpine</postgres.testcontainer.image>
     <mysql.testcontainer.image>mysql:8.0</mysql.testcontainer.image>
-    <mariadb.testcontainer.image>mariadb:11</mariadb.testcontainer.image>
+    <mariadb.testcontainer.image>mariadb:12</mariadb.testcontainer.image>
     <mssql.testcontainer.image>mcr.microsoft.com/mssql/server:2022-CU23-ubuntu-22.04</mssql.testcontainer.image>
     <oracle.testcontainer.image>gvenzl/oracle-free:slim-faststart</oracle.testcontainer.image>
   </properties>
