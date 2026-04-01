@@ -61,7 +61,7 @@
         <version.io.micrometer>1.16.0</version.io.micrometer>
         <version.org.apache.felix>7.0.5</version.org.apache.felix>
         <version.org.jboss.jboss-transaction-spi>8.0.0.Final</version.org.jboss.jboss-transaction-spi>
-        <version.org.jboss.logging>3.6.1.Final</version.org.jboss.logging>
+        <version.org.jboss.logging>3.6.3.Final</version.org.jboss.logging>
         <version.org.jboss.narayana>7.3.3.Final</version.org.jboss.narayana>
         <version.org.junit.jupiter>6.0.2</version.org.junit.jupiter>
         <version.org.junit.platform>6.0.2</version.org.junit.platform>
