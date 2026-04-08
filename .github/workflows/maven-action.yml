@@ -19,7 +19,7 @@ jobs:
           java-package: jdk
           java-version: '17'
       - run: mvn -B install
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: agroal-repository-artifact
           path: ~/.m2/repository/io/agroal/**
@@ -41,7 +41,7 @@ jobs:
           distribution: 'temurin'
           java-package: jdk
           java-version: ${{ matrix.java }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: agroal-repository-artifact
           path: ~/.m2/repository/io/agroal
