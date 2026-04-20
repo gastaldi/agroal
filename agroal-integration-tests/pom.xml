@@ -11,7 +11,7 @@
   <artifactId>agroal-integration-tests</artifactId>
   <name>Agroal Integration Tests</name>
   <properties>
-    <testcontainers.version>2.0.3</testcontainers.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
     <assertj.version>3.27.7</assertj.version>
     <byteman.version>4.0.26</byteman.version>
 
