@@ -29,11 +29,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * Narayana reaper fires TMFAIL, the blocked query must be interrupted with an
  * exception that carries a non-null SQLState.
  *
- * NOTE: This test currently fails because MySQL Connector/J 9.x creates
- * {@code MySQLStatementCancelledException} without setting the SQLState
- * (it was "70100" in 8.x). This is a driver bug, not an Agroal bug.
- * The test is kept as a regression marker — it should pass once the
- * driver is fixed upstream.
+ * NOTE: This test currently fails because MySQL Connector/J creates
+ * {@code MySQLStatementCancelledException} without setting the SQLState.
+ * This is a driver bug (affects both 8.x and 9.x), not an Agroal bug.
+ * The test is kept as a marker — it should pass once the driver is
+ * fixed upstream. See https://github.com/mysql/mysql-connector-j/issues/125
  */
 @Tag( "testcontainers" )
 @Testcontainers
@@ -97,11 +97,12 @@ class MySQLXASQLStateTest {
                     // producing a MySQLStatementCancelledException. The SQLState must
                     // be preserved (not null) so that frameworks like Spring can
                     // translate the exception correctly (e.g. QueryTimeoutException).
+                    System.out.println("ANTES");
                     SQLException ex = assertThrows( SQLException.class,
                             () -> stmt.executeQuery( "SELECT * FROM sqlstate_test WHERE id = 1 FOR UPDATE" ),
                             "Blocked query must be interrupted by transaction timeout" );
-
-                    logger.info( "Caught: " + ex.getClass().getName()
+                    System.out.println("DEPOIS");
+                    System.out.println( "Caught: " + ex.getClass().getName()
                             + " SQLState=" + ex.getSQLState()
                             + " msg=" + ex.getMessage() );
 
@@ -110,6 +111,7 @@ class MySQLXASQLStateTest {
                 }
             }
         } finally {
+            System.out.println("FINALLY");
             try { txManager.rollback(); } catch ( Exception ignore ) { }
         }
     }
