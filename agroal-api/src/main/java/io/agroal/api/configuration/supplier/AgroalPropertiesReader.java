@@ -71,6 +71,7 @@ public class AgroalPropertiesReader implements Supplier<AgroalDataSourceConfigur
     public static final String TRANSACTION_REQUIREMENT = "transactionRequirement";
     public static final String VALIDATE_ON_BORROW = "validateOnBorrow";
     public static final String ESTABLISHMENT_RETRY_ATTEMPTS = "establishmentRetryAttempts";
+    public static final String VALIDATION_FAILURE_THRESHOLD = "validationFailureThreshold";
 
     public static final String ACQUISITION_TIMEOUT = "acquisitionTimeout";
     public static final String ACQUISITION_TIMEOUT_MS = "acquisitionTimeout_ms";
@@ -196,6 +197,7 @@ public class AgroalPropertiesReader implements Supplier<AgroalDataSourceConfigur
         apply( connectionPoolSupplier::transactionRequirement, TransactionRequirement::valueOf, properties, TRANSACTION_REQUIREMENT );
         apply( connectionPoolSupplier::validateOnBorrow, Boolean::parseBoolean, properties, VALIDATE_ON_BORROW );
         apply( connectionPoolSupplier::establishmentRetryAttempts, Integer::parseInt, properties, ESTABLISHMENT_RETRY_ATTEMPTS );
+        apply( connectionPoolSupplier::validationFailureThreshold, Integer::parseInt, properties, VALIDATION_FAILURE_THRESHOLD );
 
         apply( connectionPoolSupplier::acquisitionTimeout, Duration::parse, properties, ACQUISITION_TIMEOUT );
         apply( connectionPoolSupplier::acquisitionTimeout, AgroalPropertiesReader::parseDurationMs, properties, ACQUISITION_TIMEOUT_MS );

@@ -20,6 +20,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Executor;
@@ -370,6 +372,184 @@ public class ValidationTests {
         @Override
         public boolean isValid(int timeout) throws SQLException {
             if ( stale.get() ) {
+                try {
+                    // Simulate socket read timeout on a broken connection
+                    Thread.sleep( 200 );
+                } catch ( InterruptedException e ) {
+                    Thread.currentThread().interrupt();
+                }
+                return false;
+            }
+            return true;
+        }
+    }
+
+    // --- //
+
+    @Test
+    @DisplayName( "single stale connection does not flush the whole pool" )
+    void singleStaleConnectionDoesNotFlushPoolTest() throws Exception {
+        int POOL_SIZE = 5, VALIDATION_MS = 500;
+
+        SelectiveStaleDataSource.reset();
+
+        AgroalDataSourceConfigurationSupplier configurationSupplier = new AgroalDataSourceConfigurationSupplier()
+                .metricsEnabled()
+                .connectionPoolConfiguration( cp -> cp
+                        .initialSize( POOL_SIZE )
+                        .maxSize( POOL_SIZE )
+                        .minSize( 0 )
+                        .validationTimeout( ofMillis( VALIDATION_MS ) )
+                        .validationFailureThreshold( 3 )
+                        .connectionValidator( AgroalConnectionPoolConfiguration.ConnectionValidator.defaultValidator() )
+                        .connectionFactoryConfiguration( cf -> cf.connectionProviderClass( SelectiveStaleDataSource.class ) )
+                );
+
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier ) ) {
+            Thread.sleep( 100 ); // wait for the initial fill to complete on the background thread
+            assertEquals( POOL_SIZE, dataSource.getMetrics().creationCount(), "Expected all connections to be created" );
+            assertEquals( POOL_SIZE, SelectiveStaleDataSource.connections.size(), "Expected one mock connection per pooled connection" );
+
+            logger.info( "Marking a single connection stale, as a killed session or a dropped idle socket would" );
+            SelectiveStaleDataSource.connections.get( 0 ).markStale();
+
+            Thread.sleep( 2 * VALIDATION_MS ); // let a full background validation run complete
+
+            assertEquals( 1, dataSource.getMetrics().invalidCount(), "Expected only the stale connection to be invalidated" );
+            assertEquals( 0, dataSource.getMetrics().flushCount(), "Expected the healthy connections not to be flushed" );
+            assertEquals( POOL_SIZE - 1, dataSource.getMetrics().availableCount(), "Expected the healthy connections to remain in the pool" );
+        }
+    }
+
+    @Test
+    @DisplayName( "flush the pool once the validation failure threshold is reached" )
+    void flushPoolAfterThresholdFailuresTest() throws Exception {
+        int POOL_SIZE = 10, VALIDATION_MS = 300, BLOCK_MS = 200, THRESHOLD = 3;
+
+        SelectiveStaleDataSource.reset();
+
+        AgroalDataSourceConfigurationSupplier configurationSupplier = new AgroalDataSourceConfigurationSupplier()
+                .metricsEnabled()
+                .connectionPoolConfiguration( cp -> cp
+                        .initialSize( POOL_SIZE )
+                        .maxSize( POOL_SIZE )
+                        .minSize( 0 )
+                        .validationTimeout( ofMillis( VALIDATION_MS ) )
+                        .validationFailureThreshold( THRESHOLD )
+                        .connectionValidator( AgroalConnectionPoolConfiguration.ConnectionValidator.defaultValidator() )
+                        .connectionFactoryConfiguration( cf -> cf.connectionProviderClass( SelectiveStaleDataSource.class ) )
+                );
+
+        CountDownLatch removedLatch = new CountDownLatch( POOL_SIZE );
+        AgroalDataSourceListener listener = new AgroalDataSourceListener() {
+            @Override
+            public void onConnectionFlush(Connection connection) {
+                removedLatch.countDown();
+            }
+
+            @Override
+            public void onConnectionInvalid(Connection connection) {
+                removedLatch.countDown();
+            }
+        };
+
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener ) ) {
+            Thread.sleep( 100 ); // wait for the initial fill to complete on the background thread
+            assertEquals( POOL_SIZE, dataSource.getMetrics().creationCount(), "Expected all connections to be created" );
+
+            logger.info( format( "Marking all {0} connections stale, as a database failover would", POOL_SIZE ) );
+            SelectiveStaleDataSource.connections.forEach( SelectiveStaleConnection::markStale );
+            long start = System.nanoTime();
+
+            boolean removed = removedLatch.await( 10 * VALIDATION_MS, MILLISECONDS );
+            long elapsed = ( System.nanoTime() - start ) / 1_000_000;
+
+            assertTrue( removed, "Expected all connections to be removed from the pool" );
+            logger.info( format( "All {0} connections removed in {1}ms", POOL_SIZE, elapsed ) );
+
+            // Validating every connection individually would block for BLOCK_MS each. Reaching the threshold
+            // costs THRESHOLD * BLOCK_MS and the rest of the pool is flushed without validation.
+            long worstCaseWithoutFlush = (long) POOL_SIZE * BLOCK_MS;
+            assertTrue( elapsed < worstCaseWithoutFlush,
+                    format( "Expected the pool to be flushed rather than validated connection by connection. Elapsed: {0}ms, validating all: {1}ms", elapsed, worstCaseWithoutFlush ) );
+        }
+    }
+
+    @Test
+    @DisplayName( "threshold of zero never flushes the pool" )
+    void validationFailureThresholdZeroTest() throws Exception {
+        int POOL_SIZE = 5, VALIDATION_MS = 300;
+
+        SelectiveStaleDataSource.reset();
+
+        AgroalDataSourceConfigurationSupplier configurationSupplier = new AgroalDataSourceConfigurationSupplier()
+                .metricsEnabled()
+                .connectionPoolConfiguration( cp -> cp
+                        .initialSize( POOL_SIZE )
+                        .maxSize( POOL_SIZE )
+                        .minSize( 0 )
+                        .validationTimeout( ofMillis( VALIDATION_MS ) )
+                        .validationFailureThreshold( 0 )
+                        .connectionValidator( AgroalConnectionPoolConfiguration.ConnectionValidator.defaultValidator() )
+                        .connectionFactoryConfiguration( cf -> cf.connectionProviderClass( SelectiveStaleDataSource.class ) )
+                );
+
+        CountDownLatch invalidLatch = new CountDownLatch( POOL_SIZE );
+        AgroalDataSourceListener listener = new AgroalDataSourceListener() {
+            @Override
+            public void onConnectionInvalid(Connection connection) {
+                invalidLatch.countDown();
+            }
+        };
+
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener ) ) {
+            Thread.sleep( 100 ); // wait for the initial fill to complete on the background thread
+            assertEquals( POOL_SIZE, dataSource.getMetrics().creationCount(), "Expected all connections to be created" );
+
+            logger.info( "Marking all connections stale with the pool flush disabled" );
+            SelectiveStaleDataSource.connections.forEach( SelectiveStaleConnection::markStale );
+
+            assertTrue( invalidLatch.await( 20 * VALIDATION_MS, MILLISECONDS ), "Expected every connection to be validated and removed individually" );
+
+            assertEquals( POOL_SIZE, dataSource.getMetrics().invalidCount(), "Expected every connection to be invalidated individually" );
+            assertEquals( 0, dataSource.getMetrics().flushCount(), "Expected the pool never to be flushed" );
+        }
+    }
+
+    // --- //
+
+    public static class SelectiveStaleDataSource implements MockDataSource {
+
+        static final List<SelectiveStaleConnection> connections = new CopyOnWriteArrayList<>();
+
+        static void reset() {
+            connections.clear();
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            SelectiveStaleConnection connection = new SelectiveStaleConnection();
+            connections.add( connection );
+            return connection;
+        }
+    }
+
+    public static class SelectiveStaleConnection implements MockConnection {
+
+        private volatile boolean stale;
+
+        void markStale() {
+            stale = true;
+        }
+
+        @Override
+        public String getSchema() throws SQLException {
+            return "selective_stale";
+        }
+
+        @Override
+        public boolean isValid(int timeout) throws SQLException {
+            if ( stale ) {
                 try {
                     // Simulate socket read timeout on a broken connection
                     Thread.sleep( 200 );

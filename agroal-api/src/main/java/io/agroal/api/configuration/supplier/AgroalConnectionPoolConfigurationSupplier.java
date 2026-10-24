@@ -47,6 +47,7 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     volatile int maxSize = MAX_VALUE;
     boolean validateOnBorrow;
     int establishmentRetryAttempts = 1;
+    int validationFailureThreshold = 1;
     Duration establishmentRetryInterval = ofSeconds( 1 );
     AgroalConnectionPoolConfiguration.ConnectionValidator connectionValidator = emptyValidator();
     AgroalConnectionPoolConfiguration.ExceptionSorter exceptionSorter = emptyExceptionSorter();
@@ -84,6 +85,7 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         maxSize = existingConfiguration.maxSize();
         validateOnBorrow = existingConfiguration.validateOnBorrow();
         establishmentRetryAttempts = existingConfiguration.establishmentRetryAttempts();
+        validationFailureThreshold = existingConfiguration.validationFailureThreshold();
         establishmentRetryInterval = existingConfiguration.establishmentRetryInterval();
         connectionValidator = existingConfiguration.connectionValidator();
         exceptionSorter = existingConfiguration.exceptionSorter();
@@ -249,6 +251,18 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     }
 
     /**
+     * Sets the number of connections that have to fail background validation within the same validation run before
+     * the whole pool is assumed stale and flushed. Default is 1, meaning the pool is flushed as soon as a single
+     * connection fails validation. A value of 0 disables flushing the pool, removing only the connections that
+     * actually fail validation.
+     */
+    public AgroalConnectionPoolConfigurationSupplier validationFailureThreshold(int threshold) {
+        checkLock();
+        validationFailureThreshold = threshold;
+        return this;
+    }
+
+    /**
      * Sets the amount of time between attempts to establish a new connection. Default is 1 second between attempts.
      */
     public AgroalConnectionPoolConfigurationSupplier establishmentRetryInterval(Duration interval) {
@@ -371,6 +385,9 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         if ( establishmentRetryInterval.isNegative() ) {
             throw new IllegalArgumentException( "Establishment retry interval must not be negative" );
         }
+        if ( validationFailureThreshold < 0 ) {
+            throw new IllegalArgumentException( "Validation failure threshold must not be negative" );
+        }
         if ( acquisitionTimeout.isNegative() ) {
             throw new IllegalArgumentException( "Acquisition timeout must not be negative" );
         }
@@ -446,6 +463,11 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
             @Override
             public Duration establishmentRetryInterval() {
                 return establishmentRetryInterval;
+            }
+
+            @Override
+            public int validationFailureThreshold() {
+                return validationFailureThreshold;
             }
 
             @Override

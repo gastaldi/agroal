@@ -880,17 +880,22 @@ public final class ConnectionPool implements Pool {
         public void run() {
             housekeepingExecutor.schedule( this, configuration.validationTimeout().toNanos(), NANOSECONDS );
 
+            // AG-302 - failures are counted per run. This task is scheduled once and reschedules itself, so runs
+            // overlap when validation takes longer than the validation timeout and a shared field would mix them up.
+            AtomicInteger failures = new AtomicInteger();
             for ( ConnectionHandler handler : allConnections ) {
-                housekeepingExecutor.execute( new ValidateConnectionTask( handler ) );
+                housekeepingExecutor.execute( new ValidateConnectionTask( handler, failures ) );
             }
         }
 
         private class ValidateConnectionTask implements Runnable {
 
             private final ConnectionHandler handler;
+            private final AtomicInteger failures;
 
-            ValidateConnectionTask(ConnectionHandler handler) {
+            ValidateConnectionTask(ConnectionHandler handler, AtomicInteger failures) {
                 this.handler = handler;
+                this.failures = failures;
             }
 
             @Override
@@ -898,8 +903,13 @@ public final class ConnectionPool implements Pool {
                 if ( stalePoolDetected ) {
                     return;
                 }
-                if ( handler.tryValidationFromIdle() ) {
-                    if ( !performValidation( handler, true ) ) {
+                if ( handler.tryValidationFromIdle() && !performValidation( handler, true ) ) {
+                    // AG-302 - the failing connection is already out of the pool. Several failures in the same run
+                    // mean the whole pool is likely stale (e.g. a database failover that left the sockets open), and
+                    // validating each connection individually would block for a socket timeout each time.
+                    int threshold = configuration.validationFailureThreshold();
+                    if ( threshold > 0 && failures.incrementAndGet() >= threshold ) {
+                        fireOnInfo( listeners, "Pool assumed stale after " + threshold + " validation failures. Flushing all connections" );
                         stalePoolDetected = true;
                         flushPool( GRACEFUL );
                         housekeepingExecutor.execute( () -> stalePoolDetected = false );
